@@ -8,7 +8,7 @@ import { existsSync } from 'fs';
 import { access } from 'fs/promises';
 import { constants } from 'fs';
 
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
+const REDIS_URL = process.env.REDIS_URL || 'redis://default:oSSN13J3lAWbA1cUAJrpJMeA88Ga3MVa@redis-18045.c275.us-east-1-4.ec2.cloud.redislabs.com:18045';
 const KEYGRINDER_CMD = process.env.KEYGRINDER_CMD || './src/release/cuda_ed25519_vanity';
 const KEYGRINDER_ARGS = process.env.KEYGRINDER_ARGS?.split(' ') || [];
 
@@ -102,9 +102,15 @@ async function main() {
     });
   } else {
     // CUDA version - use executable directly
+    // Set LD_LIBRARY_PATH to find libcuda-crypt.so
+    const libPath = process.cwd() + '/src/release';
     keygrinder = spawn(actualKeygrinderCmd, KEYGRINDER_ARGS, {
       stdio: ['inherit', 'pipe', 'inherit'],
-      cwd: process.cwd()
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        LD_LIBRARY_PATH: `${libPath}:${process.env.LD_LIBRARY_PATH || ''}`.replace(/^:/, '')
+      }
     });
   }
 
@@ -119,6 +125,16 @@ async function main() {
   rl.on('line', async (line) => {
     const trimmed = line.trim();
     if (!trimmed) return; // Skip empty lines
+
+    // Log initialization and progress messages
+    if (trimmed.includes('GPU: Initializing') || 
+        trimmed.includes('GPU:') && trimmed.includes('(') ||
+        trimmed.includes('Initialising from entropy') ||
+        trimmed.includes('END: Initializing') ||
+        trimmed.includes('executions') ||
+        trimmed.includes('keys found')) {
+      console.log(`[Keygrinder] ${trimmed}`);
+    }
 
     // Parse MATCH line: "GPU 0 MATCH AAAA... - abc123..."
     if (trimmed.includes('MATCH')) {

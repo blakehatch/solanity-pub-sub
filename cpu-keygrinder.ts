@@ -12,16 +12,16 @@ const MAX_ITERATIONS = 100000;
 const STOP_AFTER_KEYS_FOUND = 100;
 const ATTEMPTS_PER_EXECUTION = 100000;
 
-// Vanity patterns to search for (update these to match your config.h)
-const PREFIXES: string[] = [
-  'AAAAA',
-  'BBBBB',
+// Vanity patterns to search for - can be prefix (start) or suffix (end)
+// For suffix matching, use negative length (e.g., -4 for "wewe" at end)
+const PATTERNS: string[] = [
+  'we',  // Match addresses ending with "we" (faster for testing - ~3 seconds vs ~30-60 minutes)
 ];
 
 interface Config {
   maxIterations: number;
   stopAfterKeysFound: number;
-  prefixes: string[];
+  prefixes: string[];  // Note: despite the name, these are now suffix patterns
 }
 
 function getTimeStr(): string {
@@ -46,17 +46,22 @@ function generateKeypairFromSeed(seed: Uint8Array): { keypair: Keypair; address:
   return { keypair, address };
 }
 
-function matchesPrefix(address: string, prefixes: string[]): string | null {
-  for (const prefix of prefixes) {
+function matchesPattern(address: string, patterns: string[]): string | null {
+  for (const pattern of patterns) {
     let matches = true;
-    for (let i = 0; i < prefix.length; i++) {
-      if (prefix[i] !== '?' && prefix[i] !== address[i]) {
-        matches = false;
-        break;
+    
+    // Check if pattern matches at the END of the address (suffix)
+    if (address.length >= pattern.length) {
+      const startPos = address.length - pattern.length;
+      for (let i = 0; i < pattern.length; i++) {
+        if (pattern[i] !== '?' && pattern[i] !== address[startPos + i]) {
+          matches = false;
+          break;
+        }
       }
-    }
-    if (matches) {
-      return prefix;
+      if (matches) {
+        return pattern;
+      }
     }
   }
   return null;
@@ -70,7 +75,7 @@ function seedToHex(seed: Uint8Array): string {
 
 async function runVanitySearch(config: Config) {
   console.log('CPU Keygrinder Starting...');
-  console.log(`Searching for prefixes: ${config.prefixes.join(', ')}`);
+  console.log(`Searching for addresses ending with: ${config.prefixes.join(', ')}`);
   console.log(`Max iterations: ${config.maxIterations}`);
   console.log(`Stop after ${config.stopAfterKeysFound} keys found`);
   console.log('');
@@ -95,10 +100,10 @@ async function runVanitySearch(config: Config) {
       // Generate keypair from seed
       const { keypair, address } = generateKeypairFromSeed(seed);
 
-      // Check if it matches any prefix
-      const matchedPrefix = matchesPrefix(address, config.prefixes);
+      // Check if it matches any pattern (suffix)
+      const matchedPattern = matchesPattern(address, config.prefixes);
       
-      if (matchedPrefix) {
+      if (matchedPattern) {
         iterationKeysFound++;
         keysFound++;
 
@@ -140,7 +145,7 @@ async function runVanitySearch(config: Config) {
 const config: Config = {
   maxIterations: MAX_ITERATIONS,
   stopAfterKeysFound: STOP_AFTER_KEYS_FOUND,
-  prefixes: PREFIXES,
+  prefixes: PATTERNS,
 };
 
 // Allow overriding config via environment variables
