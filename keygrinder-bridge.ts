@@ -102,9 +102,15 @@ async function main() {
     });
   } else {
     // CUDA version - use executable directly
+    // Set LD_LIBRARY_PATH to find libcuda-crypt.so
+    const libPath = process.cwd() + '/src/release';
     keygrinder = spawn(actualKeygrinderCmd, KEYGRINDER_ARGS, {
       stdio: ['inherit', 'pipe', 'inherit'],
-      cwd: process.cwd()
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        LD_LIBRARY_PATH: `${libPath}:${process.env.LD_LIBRARY_PATH || ''}`.replace(/^:/, '')
+      }
     });
   }
 
@@ -119,6 +125,16 @@ async function main() {
   rl.on('line', async (line) => {
     const trimmed = line.trim();
     if (!trimmed) return; // Skip empty lines
+
+    // Log initialization and progress messages
+    if (trimmed.includes('GPU: Initializing') || 
+        trimmed.includes('GPU:') && trimmed.includes('(') ||
+        trimmed.includes('Initialising from entropy') ||
+        trimmed.includes('END: Initializing') ||
+        trimmed.includes('executions') ||
+        trimmed.includes('keys found')) {
+      console.log(`[Keygrinder] ${trimmed}`);
+    }
 
     // Parse MATCH line: "GPU 0 MATCH AAAA... - abc123..."
     if (trimmed.includes('MATCH')) {
