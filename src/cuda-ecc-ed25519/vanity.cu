@@ -35,7 +35,7 @@ typedef struct {
 void            vanity_setup(config& vanity);
 void            vanity_run(config& vanity);
 void __global__ vanity_init(unsigned long long int* seed, curandState* state);
-void __global__ vanity_scan(curandState* state, int* keys_found, int* gpu, int* execution_count);
+void __global__ vanity_scan(curandState* state, int* keys_found, int* gpu, int* exec_count);
 bool __device__ b58enc(char* b58, size_t* b58sz, uint8_t* data, size_t binsz);
 
 /* -- Entry Point ----------------------------------------------------------- */
@@ -229,6 +229,9 @@ void __global__ vanity_init(unsigned long long int* rseed, curandState* state) {
 
 void __global__ vanity_scan(curandState* state, int* keys_found, int* gpu, int* exec_count) {
 	int id = threadIdx.x + (blockIdx.x * blockDim.x);
+	
+	// Store pointer to state array to avoid potential scope issues
+	curandState* state_array = state;
 
         atomicAdd(exec_count, 1);
 
@@ -246,7 +249,7 @@ void __global__ vanity_scan(curandState* state, int* keys_found, int* gpu, int* 
 
 	// Local Kernel State
 	ge_p3 A;
-	curandState localState     = state[id];
+	curandState localState     = state_array[id];
 	unsigned char seed[32]     = {0};
 	unsigned char publick[32]  = {0};
 	unsigned char privatek[64] = {0};
@@ -491,7 +494,7 @@ void __global__ vanity_scan(curandState* state, int* keys_found, int* gpu, int* 
 
 	// Copy Random State so that future calls of this kernel/thread/block
 	// don't repeat their sequences.
-	state[id] = localState;
+	state_array[id] = localState;
 }
 
 bool __device__ b58enc(
