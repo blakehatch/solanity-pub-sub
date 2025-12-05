@@ -470,9 +470,7 @@ void __global__ vanity_scan(curandState* state, int* keys_found, int* gpu, int* 
 
                                         break;
 				}
-
                         }
-		}
 
 		// Code Until here runs at 22_000_000H/s. So the above is fast enough.
 
